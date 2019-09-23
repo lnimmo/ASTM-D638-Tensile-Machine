@@ -3,7 +3,7 @@
 #include <EEPROM.h>
 
 const int doutPin = 19; //mcu > HX711 dout pin, must be external interrupt capable
-const int sckPin = 7; //mcu > HX711 sck pin 
+const int sckPin = 7; //mcu > HX711 sck pin
 HX711_ADC LoadCell(doutPin, sckPin);
 const int eepromAdress = 0;
 long t;
@@ -57,21 +57,20 @@ String TestData;
   PID myPID(&linearVelocity, &motorOutput, &motorSetpoint, Kp, Ki, Kd, DIRECT);
 
   // dial indicator constants
-  #define DIAL_INDICATOR_CLOCK_PIN 18
+  #define DIAL_INDICATOR_CLOCK_PIN 2
   #define DIAL_INDICATOR_DATA_PIN  17
   #define DIAL_INDICATOR_CLOCK_INTERRUPT (digitalPinToInterrupt(DIAL_INDICATOR_CLOCK_PIN))
-  #define DIAL_INDICATOR_PACKET_START_PULSE_MICROS 500
+  #define DIAL_INDICATOR_PACKET_START_PULSE_MICROS 1000
   #define DIAL_INDICATOR_MILLIMETERS_SCALE_FACTOR 100.00
 
   // dial indicator last output
   float dialIndicatorReadingMillimeters;
-  
+
   // dial indicator internal variables
   volatile int dialIndicatorPreviousClockState;
   volatile unsigned long dialIndicatorLastClockRiseMicroseconds;
   volatile int dialIndicatorPacketIndex;
   volatile long dialIndicatorPartialPacket;
-  volatile bool dialIndicatorReadingIsPositive;
   volatile bool dialIndicatorNextReadingIsPositive;
   volatile bool dialIndicatorReadingIsInches;
   volatile bool dialIndicatorNextReadingIsInches;
@@ -82,12 +81,12 @@ void setup() {
   //turn on serial
   Serial.begin(9600);
   pinMode(relayPin, OUTPUT);
-  pinMode(joySwitchPin, INPUT);
+  //pinMode(joySwitchPin, INPUT);
 
   //new load cell library
   float calValue; // calibration value
-  calValue = 2150.0; // uncomment this if you want to set this value in the sketch 
-  #if defined(ESP8266) 
+  calValue = 2150.0; // uncomment this if you want to set this value in the sketch
+  #if defined(ESP8266)
   //EEPROM.begin(512); // uncomment this if you use ESP8266 and want to fetch the value from eeprom
   #endif
   //EEPROM.get(eepromAdress, calValue); // uncomment this if you want to fetch the value from eeprom
@@ -124,6 +123,7 @@ void whenreadyISR() {
 }
 
 void loop() {
+  Serial.println(dialIndicatorReadingMillimeters, 2);
    int joystickValue = analogRead(joystickPin);
   //  Serial.println(digitalRead(joySwitchPin));
 
@@ -139,7 +139,7 @@ void loop() {
           Serial.print(TestData);
         }
       }
-  
+
   if ((joystickValue >= 100) && (joystickValue <= 950))
     {
       if(RunTest == true)
@@ -148,18 +148,18 @@ void loop() {
         int encoderValue = digitalRead(encoderPin);
         int downwardEndStopValue = digitalRead(downwardEndStop);
         digitalWrite(relayPin, HIGH);
-        
+
         analogWrite(motorPin, motorOutput);
-            
+
           //if new encoder reaches new slot, do something
           if (encoderValue == 1 && lastEncoderValue != encoderValue){
-            
+
             encoderSteps++;
             numberOfLoops++;
-            
+
             //new load cell library
             float cellReading = LoadCell.getData();
-            
+
             //change last encoder value to 1
             lastEncoderValue = encoderValue;
             //time between encoder readings = current time - previous time (ms)
@@ -169,9 +169,9 @@ void loop() {
             linearDistance = linearDistance + distancePerStep;
             //angular velocity = full rotation degrees / full rotation slots / time in seconds (degree/sec)
             angularVelocity = fullRotation/encoderSlots*(msConversion/time);
-            //linear velocity, convert angular velocity to linear (mm/s)      
+            //linear velocity, convert angular velocity to linear (mm/s)
             linearVelocity = angularVelocity * linearizationConst;
-          
+
             LogTestDataToSerial(cellReading);
           }
 
@@ -182,8 +182,8 @@ void loop() {
         myPID.Compute();
       }else{
         analogWrite(motorPin, 0);
-      } 
-      
+      }
+
     } else {
 
     RunTest = false;
@@ -215,7 +215,7 @@ void LogTestDataToSerial (float cellReading){
 void setupDialIndicator(){
   pinMode(DIAL_INDICATOR_CLOCK_PIN, INPUT_PULLUP);
   pinMode(DIAL_INDICATOR_DATA_PIN, INPUT_PULLUP);
-  attachInterrupt(DIAL_INDICATOR_CLOCK_INTERRUPT, dialIndicatorClock, CHANGE);
+  attachInterrupt(DIAL_INDICATOR_CLOCK_INTERRUPT, dialIndicatorClock, RISING);
 
   dialIndicatorPreviousClockState = -1;
   dialIndicatorLastClockRiseMicroseconds = 0;
@@ -225,55 +225,43 @@ void setupDialIndicator(){
 }
 
 void dialIndicatorClock() {
-  int currentClockState = digitalRead(DIAL_INDICATOR_CLOCK_PIN);
-  if(dialIndicatorPreviousClockState != currentClockState)
-  {
-      if(digitalRead(DIAL_INDICATOR_CLOCK_PIN) == LOW)
-      { // Falling edge
-        dialIndicatorLastClockRiseMicroseconds = micros();
-      }
-      else
-      { // Rising Edge
-        if( (dialIndicatorPacketIndex == -1 ) &&
-            ((micros()-dialIndicatorLastClockRiseMicroseconds) > DIAL_INDICATOR_PACKET_START_PULSE_MICROS))
-        {
-          dialIndicatorPacketIndex = 0;
-          dialIndicatorPartialPacket = 0;
-        }
-        else if(dialIndicatorPacketIndex>=0)
-        {
-          
-          bool dataPinValue = digitalRead(DIAL_INDICATOR_DATA_PIN)?false:true;
-          if(dialIndicatorPacketIndex<20)
-          {
-            if(dataPinValue){
-              dialIndicatorPartialPacket |= 1<<dialIndicatorPacketIndex;
-            }
-            dialIndicatorPacketIndex++;
-          }
-          else if(dialIndicatorPacketIndex==20)
-          {
-            dialIndicatorNextReadingIsPositive = dataPinValue;
-            dialIndicatorPacketIndex++;
-          }
-          else if((dialIndicatorPacketIndex>20)&&(dialIndicatorPacketIndex<23))
-          {
-            dialIndicatorPacketIndex++;
-          }
-          else if(dialIndicatorPacketIndex==23)
-          {      
-            //dialIndicatorNextReadingIsInches = dataPinValue;
-      
-            float signAdjustment = dialIndicatorNextReadingIsPositive?-1.0:1.0;
-      
-            dialIndicatorReadingMillimeters = ((float)dialIndicatorPartialPacket*signAdjustment)/(DIAL_INDICATOR_MILLIMETERS_SCALE_FACTOR);
-            dialIndicatorPacketIndex = -1;
-          }
-          //Serial.print(dialIndicatorPacketIndex);
-          //Serial.print(" ");
-          //Serial.println(dialIndicatorPartialPacket, BIN);
-        }
-      }
-      dialIndicatorPreviousClockState = currentClockState;
+    if( (dialIndicatorPacketIndex == -1 ) &&
+        ((micros()-dialIndicatorLastClockRiseMicroseconds) > DIAL_INDICATOR_PACKET_START_PULSE_MICROS))
+    {
+      dialIndicatorPacketIndex = 0;
+      dialIndicatorPartialPacket = 0;
     }
-}
+    else if(dialIndicatorPacketIndex>=0)
+    {
+
+      bool dataPinValue = digitalRead(DIAL_INDICATOR_DATA_PIN)?false:true;
+      if(dialIndicatorPacketIndex<20)
+      {
+        if(dataPinValue){
+          dialIndicatorPartialPacket |= 1<<dialIndicatorPacketIndex;
+        }
+        dialIndicatorPacketIndex++;
+      }
+      else if(dialIndicatorPacketIndex==20)
+      {
+        dialIndicatorNextReadingIsPositive = dataPinValue;
+        dialIndicatorPacketIndex++;
+      }
+      else if((dialIndicatorPacketIndex>20)&&(dialIndicatorPacketIndex<23))
+      {
+        dialIndicatorPacketIndex++;
+      }
+      else if(dialIndicatorPacketIndex==23)
+      {
+        float signAdjustment = dialIndicatorNextReadingIsPositive?-1.0:1.0;
+
+        dialIndicatorReadingMillimeters = ((float)dialIndicatorPartialPacket*signAdjustment)/(DIAL_INDICATOR_MILLIMETERS_SCALE_FACTOR);
+        dialIndicatorPacketIndex = -1;
+        //Serial.println(dialIndicatorReadingMillimeters, 2);
+      }
+      //Serial.print(dialIndicatorPacketIndex);
+      //Serial.print(" ");
+      //Serial.println(dialIndicatorPartialPacket, BIN);
+    }
+    dialIndicatorLastClockRiseMicroseconds = micros();
+  }
