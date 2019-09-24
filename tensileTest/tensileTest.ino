@@ -15,7 +15,7 @@ const int downwardEndStop = 3;
 const int upwardEndStop = 4;
 const int relayPin = 24;
 int joystickPin = A10;
-int joySwitchPin = 2;
+// int joySwitchPin = 2;
 char serialData;
 
 //time variables
@@ -60,7 +60,7 @@ String TestData;
   #define DIAL_INDICATOR_CLOCK_PIN 2
   #define DIAL_INDICATOR_DATA_PIN  17
   #define DIAL_INDICATOR_CLOCK_INTERRUPT (digitalPinToInterrupt(DIAL_INDICATOR_CLOCK_PIN))
-  #define DIAL_INDICATOR_PACKET_START_PULSE_MICROS 1000
+  #define DIAL_INDICATOR_PACKET_START_PULSE_MICROS 5000
   #define DIAL_INDICATOR_MILLIMETERS_SCALE_FACTOR 100.00
 
   // dial indicator last output
@@ -75,14 +75,18 @@ String TestData;
   volatile bool dialIndicatorReadingIsInches;
   volatile bool dialIndicatorNextReadingIsInches;
 
+  char DialIndicatorReading[10];
+  char PartialDialIndicatorReading[10];
+  int DialIndicatorReadingIndex;
+
 void setup() {
 
 
   //turn on serial
   Serial.begin(9600);
+  Serial2.begin(9600);
   pinMode(relayPin, OUTPUT);
   //pinMode(joySwitchPin, INPUT);
-
   //new load cell library
   float calValue; // calibration value
   calValue = 2150.0; // uncomment this if you want to set this value in the sketch
@@ -115,6 +119,7 @@ void setup() {
   //setup dial indicator connection
   setupDialIndicator();
 
+  DialIndicatorReadingIndex = -1;
 }
 
 //interrupt routine:
@@ -123,8 +128,34 @@ void whenreadyISR() {
 }
 
 void loop() {
-  Serial.println(dialIndicatorReadingMillimeters, 2);
-   int joystickValue = analogRead(joystickPin);
+  while (Serial2.available()){
+    char lastReceived = Serial2.read();
+    if( lastReceived == '\n')
+    {
+      DialIndicatorReadingIndex = 0;
+    }
+    else if( lastReceived == '\r')
+    {
+      PartialDialIndicatorReading[DialIndicatorReadingIndex] = '\0';
+      strcpy(DialIndicatorReading,PartialDialIndicatorReading);
+      DialIndicatorReadingIndex = -1;
+    }
+    else if(DialIndicatorReadingIndex >= 0)
+    {
+      PartialDialIndicatorReading[DialIndicatorReadingIndex] = lastReceived;
+      DialIndicatorReadingIndex++;
+    }
+  }
+
+  Serial.print("dial : ");
+  if(DialIndicatorReading[0]){
+    Serial.print(DialIndicatorReading);
+  }
+
+  float cellReading = LoadCell.getData();
+  Serial.print(" load cell: ");
+  Serial.println(cellReading);
+  int joystickValue = analogRead(joystickPin);
   //  Serial.println(digitalRead(joySwitchPin));
 
         if (Serial.available() > 0) {
