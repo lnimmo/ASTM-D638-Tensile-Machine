@@ -32,6 +32,7 @@ float encoderSlots = 50.0;
 float time = 0; //ms
 float distancePerStep = fullRotationDistance/encoderSlots; //mm
 const float linearizationConst = (2.0/360.0); //mm/degree
+const float LoadCellToNewtons = 9.81/2.205;
 float msConversion = 1000.0;
 int encoderSteps = 1;
 float angularVelocity = 0;
@@ -76,6 +77,7 @@ String TestData;
   volatile bool dialIndicatorNextReadingIsInches;
 
   char DialIndicatorReading[10];
+  char *DialIndicatorReadingToPrint;
   char PartialDialIndicatorReading[10];
   int DialIndicatorReadingIndex;
 
@@ -147,14 +149,17 @@ void loop() {
     }
   }
 
-  Serial.print("dial : ");
+  // Serial.print("dial : ");
   if(DialIndicatorReading[0]){
-    Serial.print(DialIndicatorReading);
+    // Serial.print(DialIndicatorReading);
+    DialIndicatorReadingToPrint = DialIndicatorReading;
+
   }
 
-  float cellReading = LoadCell.getData();
-  Serial.print(" load cell: ");
-  Serial.println(cellReading);
+  // float cellReading = LoadCell.getData();
+  // Serial.print(" load cell: ");
+  // Serial.println(cellReading);
+
   int joystickValue = analogRead(joystickPin);
   //  Serial.println(digitalRead(joySwitchPin));
 
@@ -190,6 +195,7 @@ void loop() {
 
             //new load cell library
             float cellReading = LoadCell.getData();
+            cellReading = cellReading * LoadCellToNewtons;
 
             //change last encoder value to 1
             lastEncoderValue = encoderValue;
@@ -239,7 +245,7 @@ void LogTestDataToSerial (float cellReading){
   Serial.print(" ");
   Serial.print(cellReading, 2);
   Serial.print(" ");
-  Serial.println(dialIndicatorReadingMillimeters, 2);
+  Serial.println(DialIndicatorReadingToPrint);
 }
 
 
