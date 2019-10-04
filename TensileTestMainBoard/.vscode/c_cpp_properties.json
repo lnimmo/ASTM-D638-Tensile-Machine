@@ -6,6 +6,7 @@
                 "ARDUINO=10800"
             ],
             "includePath": [
+                "C:\\Users\\Logan Nimmo\\Documents\\Arduino\\libraries\\Adafruit_NeoPixel",
                 "G:\\Shared drives\\Internal Projects\\Load tester\\Arduino libraries\\HX711_ADC\\src\\**",
                 "G:\\Shared drives\\Internal Projects\\Load tester\\Arduino libraries\\PID\\**",
                 "G:\\Shared drives\\Internal Projects\\Load tester\\Arduino libraries\\HX711-master\\src\\**",
@@ -19,7 +20,6 @@
                 "C:\\Users\\Logan Nimmo\\AppData\\Local\\Arduino15\\packages\\arduino\\tools\\**"
             ],
             "forcedInclude": [
-                "C:\\Program Files (x86)\\Arduino\\hardware\\arduino\\avr\\cores\\arduino\\Arduino.h",
                 "C:\\Users\\Logan Nimmo\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.1\\cores\\arduino\\Arduino.h"
             ],
             "intelliSenseMode": "clang-x64",
